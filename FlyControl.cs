@@ -9,9 +9,9 @@ public class FlyControl : MonoBehaviour
 {
     public float properPitch = 4.3f;//桨叶倾角
     public float minThrottle = 5.5f;//最小油门
+    public float maxThrottle = 30f;
     public float weight = 0.715f;
 
-    public float liftScale = 1.0f;
     public float yawScale = 1.0f;
     public float pitchScale = 1.0f;
     public float rollScale = 1.0f;
@@ -25,28 +25,20 @@ public class FlyControl : MonoBehaviour
     public Text autoLevelText,throttleText,distText,warningText;
     public Image warningMask;
     public AnimationCurve curve;
-
-    public Image postiveLine,negativeLine;
-
+    public Image throttleLine;
     private Vector2 leftInputDelta, rightInputDelta;
     private Vector3 liftForce,oriPos;
     private Quaternion rotation;
     private float maxInput, distFromTakeoffPad;
     private string[] settingsArray;
     private bool isTakeoff = false;
+    private float autoLevelFloat = 0;
+    public AudioSource audioSource;
     void Start()
     {
-        rotation = Quaternion.Euler(properPitch,0 , 0);
         oriPos = transform.position;
-        if (autoLevel)
-        {
-            autoLevelText.text = "AutoLevel:On";
-        }
-        else
-        {
-            autoLevelText.text = "AutoLevel:Off";
-        }
-        settingsArray = new string[9];
+
+        settingsArray = new string[10];
         settingsArray[0] = "droneMass";
         settingsArray[1] = "properPitch";
         settingsArray[2] = "minThrottle";
@@ -55,7 +47,8 @@ public class FlyControl : MonoBehaviour
         settingsArray[5] = "pitchSensi";
         settingsArray[6] = "maxRoll";
         settingsArray[7] = "maxPitch";
-        settingsArray[8] = "liftForce";
+        settingsArray[8] = "maxThrottle";
+        settingsArray[9] = "autoLevel";
         GetPrefSettings();
         gameObject.GetComponent<Rigidbody>().mass = weight;
     }
@@ -86,15 +79,29 @@ public class FlyControl : MonoBehaviour
                         maxRoll = value;break;
                     case "maxPitch":
                         maxPitch = value; break;
-                    case "liftForce":
-                        liftScale = value;break;
+                    case "maxThrottle":
+                        maxThrottle = value;break;
+                    case "autoLevel":
+                        autoLevelFloat = value;break;
                 }
             }
+        }
+        if (autoLevelFloat == 1)
+        {
+            autoLevel = true;
+            autoLevelText.text = "Angle";
+        }
+        else
+        {
+            autoLevel = false;
+            autoLevelText.text = "ACRO";
         }
     }
 
     void Update()
     {
+        rotation = Quaternion.Euler(properPitch, 0, 0);
+        float throttlePercent = 0f;
         leftInputDelta = leftButton.GetComponent<TouchControl>().inputDelta;
         rightInputDelta = rightButton.GetComponent<TouchControl>().inputDelta;
         maxInput = rightButton.GetComponent<TouchControl>().radius;
@@ -102,39 +109,33 @@ public class FlyControl : MonoBehaviour
         Rigidbody rigbody = gameObject.GetComponent<Rigidbody>();
         float throttle = leftInputDelta.y;
         if (throttle > 0) isTakeoff = true;
-        float throttlePercent = leftInputDelta.y / maxInput;
-        if (throttlePercent > 0)
-        {
-            postiveLine.fillAmount = throttlePercent;
-            negativeLine.fillAmount = 0;
-        }
-        else
-        {
-            postiveLine.fillAmount = 0;
-            negativeLine.fillAmount = -throttlePercent;
-        }
+        if (isTakeoff)   throttlePercent = Mathf.Clamp(((leftInputDelta.y / maxInput) / 2 + 0.5f), 0, 1);
+        
+        throttleLine.fillAmount = throttlePercent;
         throttleText.text = (throttlePercent * 100).ToString("F1") + "%";
+        audioSource.pitch = throttlePercent * 2;
+   
 
         float yaw = CurveOutput(leftInputDelta.x) * yawScale;
         if (autoLevel)
         {
             float pitch = (rightInputDelta.y / maxInput) * maxPitch;
             float roll = -(rightInputDelta.x / maxInput) * maxRoll;
-
             transform.Rotate(Vector3.up, yaw, Space.Self);
             transform.rotation = Quaternion.Euler(pitch, transform.rotation.eulerAngles.y, roll);
         }
         else
         {
             float pitch = CurveOutput(rightInputDelta.y ) * pitchScale;
-            float roll = CurveOutput(rightInputDelta.x) * rollScale;
+            float roll = CurveOutput(rightInputDelta.x) * -rollScale;
             transform.Rotate(Vector3.left, pitch, Space.Self);
+            //transform.Rotate(Vector3.forward, -transform.rotation.eulerAngles.z, Space.Self);//消除左右偏航引起的意外横滚。
             transform.Rotate(Vector3.forward, roll, Space.Self);
             transform.Rotate(Vector3.up, yaw, Space.Self);
         }
         
         Vector3 rotatedDirection = rotation * transform.up;
-        liftForce = (liftScale * throttle + minThrottle) * rotatedDirection; 
+        var liftForce = ((maxThrottle-minThrottle) * throttlePercent) * rotatedDirection; 
         //Debug.Log("liftForce:" + liftForce.magnitude);
         if (isTakeoff) rigbody.AddForce(liftForce,ForceMode.Force);
         //gameObject.GetComponent<Rigidbody>().rotation = Quaternion.identity;
@@ -175,12 +176,14 @@ public class FlyControl : MonoBehaviour
         if (autoLevel)
         {
             autoLevel = false;
-            autoLevelText.text = "AutoLevel:Off";
+            autoLevelText.text = "ACRO";
+            PlayerPrefs.SetFloat("autoLevel", 0f);
         }
         else
         {
             autoLevel = true;
-            autoLevelText.text = "AutoLevel:On";
+            autoLevelText.text = "Angle";
+            PlayerPrefs.SetFloat("autoLevel", 1f);
         }
     }
 
@@ -223,8 +226,8 @@ public class FlyControl : MonoBehaviour
         maxPitch = Settings.maxPitch;
         PlayerPrefs.SetFloat("maxPitch", maxPitch);
 
-        liftScale = Settings.liftForce;
-        PlayerPrefs.SetFloat("liftForce", liftScale);
+        maxThrottle = Settings.maxThrottle;
+        PlayerPrefs.SetFloat("maxThrottle", maxThrottle);
 
         PlayerPrefs.Save();
     }
