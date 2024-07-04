@@ -109,7 +109,7 @@ public class FlyControl : MonoBehaviour
         Rigidbody rigbody = gameObject.GetComponent<Rigidbody>();
         float throttle = leftInputDelta.y;
         if (throttle > 0) isTakeoff = true;
-        if (isTakeoff)   throttlePercent = Mathf.Clamp(((leftInputDelta.y / maxInput) / 2 + 0.5f), 0, 1);
+        if (isTakeoff) throttlePercent = Mathf.Clamp(((leftInputDelta.y / maxInput) / 2 + 0.5f), 0, 1); else throttlePercent = 0.25f;
         
         throttleLine.fillAmount = throttlePercent;
         throttleText.text = (throttlePercent * 100).ToString("F1") + "%";

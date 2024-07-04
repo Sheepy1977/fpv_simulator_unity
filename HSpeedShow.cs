@@ -12,7 +12,7 @@ public class HSpeedShow : MonoBehaviour
     public GameObject mainText; //Ö÷ÏÔÊ¾Êý×Ö
     public float lineScale = 27f;
     public int meterRange = 40;
-
+    public AudioSource windFx;
     private Vector3 lastPosition;
     private float flatSpd,realSpeed;
     private void Start()
@@ -40,10 +40,15 @@ public class HSpeedShow : MonoBehaviour
         var droneFlatPosition = new Vector2(position.x, position.z);
         var flatDis = Vector2.Distance(lastFlatPositon, droneFlatPosition);
 
-        //realSpeed = drone.GetComponent<Rigidbody>().velocity.magnitude;
+        realSpeed = drone.GetComponent<Rigidbody>().velocity.magnitude;
         //realSpeed = (Vector3.Distance(lastPosition, position) / Time.deltaTime) * 3.6f;
         flatSpd = (flatDis / Time.deltaTime) * 3.6f;
         lastPosition = position;
+
+        float windVol = Mathf.Clamp(realSpeed*0.01f, 0, 1);
+        windFx.volume = windVol;
+        if (windVol == 0 && windFx.isPlaying) windFx.Stop();
+        if (windVol > 0 && !windFx.isPlaying) windFx.Play();
     }
 
     void GenText(List<int> list)
