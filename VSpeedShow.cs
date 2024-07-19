@@ -10,10 +10,12 @@ public class VSpeedShow : MonoBehaviour
     public GameObject drone;
     public Text mainText; //主显示数字
     public Text altText;
+    public Text relativeAltText; //相对高度
     public float lineScale = 20f;
     public int meterRange = 40;
     public Image postiveLine, negativeLine;
 
+    public static float relativeAlt;
     private float height,lastHeight,verSpd;
     private int lowLimit, highLimit;
     private void Start()
@@ -52,6 +54,10 @@ public class VSpeedShow : MonoBehaviour
             negativeLine.fillAmount = 0;
             postiveLine.fillAmount = vsPercent;
         }
+
+        var th = Terrain.activeTerrain.SampleHeight(drone.transform.position);
+        relativeAlt = alt - th;
+        relativeAltText.text = "H:" + relativeAlt.ToString("F1") + "m";
     }
 
     private void FixedUpdate()

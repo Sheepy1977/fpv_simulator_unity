@@ -12,28 +12,34 @@ public class FlyControl : MonoBehaviour
     public float maxThrottle = 30f;
     public float weight = 0.715f;
 
-    public float yawScale = 1.0f;
-    public float pitchScale = 1.0f;
-    public float rollScale = 1.0f;
+    public float yawScale = 10.0f;
+    public float pitchScale = 30.0f;
+    public float rollScale = 30.0f;
     public bool autoLevel = true;
     public float maxPitch = 60f;
     public float maxRoll = 15f;
     public float maxControlDis = 400;
     public float warningControlDis = 300;
-
-    public GameObject leftButton,rightButton;
-    public Text autoLevelText,throttleText,distText,warningText;
+    public AudioSource audioSource;
+    public GameObject leftButton,rightButton,crossHair,headingMeter,vsMeter,hsMeter,distMeter;
+    public Text autoLevelText,throttleText,distText,warningText,countDownText;
     public Image warningMask;
     public AnimationCurve curve;
     public Image throttleLine;
+    public Button replayButton;
+
     private Vector2 leftInputDelta, rightInputDelta;
     private Vector3 liftForce,oriPos;
     private Quaternion rotation;
     private float maxInput, distFromTakeoffPad;
     private string[] settingsArray;
-    private bool isTakeoff = false;
     private float autoLevelFloat = 0;
-    public AudioSource audioSource;
+    private float startTimeStamp;//3秒倒计时
+
+    public static bool isTakeoff = false;
+    public static float engineSoundPitch;
+    public static bool onReplay, onFly,onPause;
+
     void Start()
     {
         oriPos = transform.position;
@@ -51,8 +57,10 @@ public class FlyControl : MonoBehaviour
         settingsArray[9] = "autoLevel";
         GetPrefSettings();
         gameObject.GetComponent<Rigidbody>().mass = weight;
+        Reinit();
     }
 
+ 
     void GetPrefSettings()
     {
         foreach (string key in settingsArray)
@@ -60,7 +68,7 @@ public class FlyControl : MonoBehaviour
             if (PlayerPrefs.HasKey(key))
             {
                 var value = PlayerPrefs.GetFloat(key);
-                Debug.Log("key:" + key + ":" + value.ToString());
+                //Debug.Log("key:" + key + ":" + value.ToString());
                 switch (key)
                 {
                     case "droneMass":
@@ -100,6 +108,8 @@ public class FlyControl : MonoBehaviour
 
     void Update()
     {
+        if (!onFly) return; //在回放模式，不进行任何操作
+        
         rotation = Quaternion.Euler(properPitch, 0, 0);
         float throttlePercent = 0f;
         leftInputDelta = leftButton.GetComponent<TouchControl>().inputDelta;
@@ -108,14 +118,34 @@ public class FlyControl : MonoBehaviour
 
         Rigidbody rigbody = gameObject.GetComponent<Rigidbody>();
         float throttle = leftInputDelta.y;
-        if (throttle > 0) isTakeoff = true;
-        if (isTakeoff) throttlePercent = Mathf.Clamp(((leftInputDelta.y / maxInput) / 2 + 0.5f), 0, 1); else throttlePercent = 0.25f;
+
         
+        //if (throttle != 0) isTakeoff = true;
+        //if (isTakeoff) throttlePercent = Mathf.Clamp(((leftInputDelta.y / maxInput) / 2 + 0.5f), 0, 1); else throttlePercent = 0.25f;
+        throttlePercent = Mathf.Clamp(((leftInputDelta.y / maxInput) / 2 + 0.5f), 0, 1);
         throttleLine.fillAmount = throttlePercent;
         throttleText.text = (throttlePercent * 100).ToString("F1") + "%";
-        audioSource.pitch = throttlePercent * 2;
-   
+        audioSource.pitch = engineSoundPitch = throttlePercent * 2;
 
+        var countdown = 5 - (Time.time - startTimeStamp); //起飞倒计时
+        var ttext = countdown.ToString("F0");
+        countDownText.text = ttext;
+
+        if (ttext == "4") StartCoroutine(FlashIn(headingMeter));
+        if (ttext == "3") 
+        {
+            StartCoroutine(FlashIn(vsMeter)); 
+            StartCoroutine(FlashIn(hsMeter));
+        }
+        if (ttext == "2") StartCoroutine(FlashIn(distMeter));
+
+        if (countdown > 0) return; //倒计时未结束前不会起飞
+
+        replayButton.interactable = true;
+        countDownText.enabled = false;
+        isTakeoff = true;
+        crossHair.SetActive(true);
+        
         float yaw = CurveOutput(leftInputDelta.x) * yawScale;
         if (autoLevel)
         {
@@ -141,7 +171,7 @@ public class FlyControl : MonoBehaviour
         //gameObject.GetComponent<Rigidbody>().rotation = Quaternion.identity;
 
         distFromTakeoffPad = Vector3.Distance(oriPos, transform.position);
-        distText.text = "Dist:" + distFromTakeoffPad.ToString("F0") + "m";
+        distText.text = "D:" + distFromTakeoffPad.ToString("F0") + "m";
 
         dimMask(distFromTakeoffPad);
         if (distFromTakeoffPad > maxControlDis)
@@ -163,12 +193,6 @@ public class FlyControl : MonoBehaviour
             return -output;
         }
 
-    }
-
-
-    public void Restart()
-    {
-        SceneManager.LoadScene(0);
     }
 
     public void AutoLevel()
@@ -230,5 +254,47 @@ public class FlyControl : MonoBehaviour
         PlayerPrefs.SetFloat("maxThrottle", maxThrottle);
 
         PlayerPrefs.Save();
+    }
+    IEnumerator FlashIn(GameObject obj)
+    {
+        bool isVisible = false;
+        for (int i = 0;i< 3; i++)
+        {
+            if (isVisible)
+            {
+                obj.SetActive(false);
+                isVisible = false;
+            }
+            else
+            {
+                obj.SetActive(true);
+                isVisible = true;
+            }
+            yield return new WaitForSeconds(0.2f);
+        }
+    }
+    public void OnReplayMsg()
+    {
+        onReplay = true;
+        onFly = false;
+        isTakeoff = false;
+    }
+
+    public void RestartMsg()
+    {
+        Reinit();
+    }
+    void Reinit()
+    {
+        isTakeoff = false;
+        onFly = true;
+        startTimeStamp = Time.time;
+        countDownText.enabled = true;
+        crossHair.SetActive(false);
+        headingMeter.SetActive(false);
+        vsMeter.SetActive(false);
+        hsMeter.SetActive(false);
+        distMeter.SetActive(false);
+        replayButton.interactable = false;
     }
 }

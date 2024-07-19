@@ -1,15 +1,16 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class Settings : MonoBehaviour
 {
-    public InputField droneMassInput,properPitchInput, liftForceInput, minThrottleInput, yawSensiInput, rollSensiInput, pitchSensiInput, maxRollInput, maxPitchInput;
+    public InputField droneMassInput,properPitchInput, maxThrottleInput, minThrottleInput, yawSensiInput, rollSensiInput, pitchSensiInput, maxRollInput, maxPitchInput;
     public GameObject settingScreen;
     public GameObject drone;
 
-    static public float droneMass,properPitch,liftForce,minThrottle,yawSensi,rollSensi,pitchSensi,maxRoll,maxPitch;
+    static public float droneMass,properPitch, maxThrottle, minThrottle,yawSensi,rollSensi,pitchSensi,maxRoll,maxPitch;
 
 
     private void Start()
@@ -27,13 +28,17 @@ public class Settings : MonoBehaviour
         SetSettings();
         settingScreen.SetActive(false);
     }
-
+    public void Restart()
+    {
+        SendMessage("RestartMsg");
+        SceneManager.LoadSceneAsync(0, LoadSceneMode.Single);
+    }
     void readSettings()
     {
         var comp = drone.GetComponent<FlyControl>();
         droneMass = comp.weight;
         properPitch = comp.properPitch;
-        liftForce = comp.liftScale;
+        maxThrottle = comp.maxThrottle;
         minThrottle = comp.minThrottle;
         yawSensi = comp.yawScale;
         rollSensi = comp.rollScale;
@@ -46,7 +51,7 @@ public class Settings : MonoBehaviour
     {
         droneMassInput.text = droneMass.ToString();
         properPitchInput.text = properPitch.ToString();
-        liftForceInput.text = liftForce.ToString();
+        maxThrottleInput.text = maxThrottle.ToString();
         minThrottleInput.text = minThrottle.ToString();
         yawSensiInput.text = yawSensi.ToString();
         rollSensiInput.text = rollSensi.ToString();
@@ -60,7 +65,7 @@ public class Settings : MonoBehaviour
         var comp = drone.GetComponent<FlyControl>();
         droneMass = float.Parse(droneMassInput.text);
         properPitch = float.Parse(properPitchInput.text);
-        liftForce = float.Parse(liftForceInput.text);
+        maxThrottle = float.Parse(maxThrottleInput.text);
         minThrottle = float.Parse(minThrottleInput.text);
         yawSensi = float.Parse(yawSensiInput.text);
         rollSensi = float.Parse(rollSensiInput.text);
