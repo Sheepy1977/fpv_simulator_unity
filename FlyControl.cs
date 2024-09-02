@@ -43,6 +43,7 @@ public class FlyControl : MonoBehaviour
     void Start()
     {
         oriPos = transform.position;
+        Screen.sleepTimeout = SleepTimeout.NeverSleep;
 
         settingsArray = new string[10];
         settingsArray[0] = "droneMass";

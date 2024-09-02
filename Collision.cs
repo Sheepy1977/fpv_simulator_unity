@@ -1,6 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
-using Unity.Mathematics;
+
 using UnityEngine;
 using Random = UnityEngine.Random;
 
@@ -16,5 +16,15 @@ public class Collision : MonoBehaviour
     {
         collisionSound.volume = Random.Range(0.1f, 1f);
         collisionSound.Play();
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        var cl = other.gameObject;
+        if (cl.name.Contains("Ballon"))
+        {
+            cl.GetComponent<AudioSource>().Play();
+            cl.transform.position = Vector3.zero;
+        }
     }
 }

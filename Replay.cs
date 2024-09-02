@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -38,13 +39,14 @@ public class Replay : MonoBehaviour
 
     public GameObject replayLeftControlPoint;
     public GameObject replayRightControlPoint;
+    public GameObject ballonParent;
     
     public Sprite playIcon,pauseIcon;
 
     public static bool isOnReplay;
 
     private object[] recordData;
-    private bool isPause,is1stView,isHudShow;
+    private bool isPause,is1stView,isHudShow,isBallonReset;
     private int frameCounter;
     private int maxFrame;
     private float startReplayTimeStamp,pauseTime;
@@ -52,12 +54,19 @@ public class Replay : MonoBehaviour
     private PosRotation lastPR = new();
     private int fixStep;
     private int stepCounter;
+    public List<Vector3> posList;
+
     void Start()
     {
-        rewindText.text = "Rewind";
+        //rewindText.text = "Rewind";
         ReplayUI.SetActive(false);
         StartCoroutine(FlashLogo());
         hud.SetActive(false);
+        foreach (Transform child in ballonParent.transform)
+        {
+            posList.Add(child.position);
+        }
+        Debug.Log(posList.ToString());
     }
     IEnumerator FlashLogo()
     {
@@ -85,6 +94,11 @@ public class Replay : MonoBehaviour
         if (isOnReplay)
         {
             //if (frameCounter > cameraSwitchFrame) replayCamera.transform.position = GetCameraPosition();
+            if (!isBallonReset)
+            {
+                ResetBallon();
+                isBallonReset = true;
+            }
             if (startReplayTimeStamp == 0) startReplayTimeStamp = Time.time;
             var duration = Time.time - startReplayTimeStamp - pauseTime;
             if (duration > Record.recordTime) duration = Record.recordTime;
@@ -184,14 +198,14 @@ public class Replay : MonoBehaviour
         var pos1 = JsonUtility.FromJson<RecordData>(recordData[0].ToString()).position;
         var pos2 = JsonUtility.FromJson<RecordData>(recordData[maxFrame - 1].ToString()).position;
         var t = GetBetweenPoint(pos1, pos2); //取起点和终点的中间点
-        var randomX = Random.Range(-20, 20);
-        var randomZ = Random.Range(-20, 20);
+        var randomX = UnityEngine.Random.Range(-20, 20);
+        var randomZ = UnityEngine.Random.Range(-20, 20);
         Vector3 newPos = new Vector3(t.x + randomX, maxHeight, t.z + randomZ);//调整高度为整个轨迹最高点
         
         var terrainH = Terrain.activeTerrain.SampleHeight(newPos);
         if (terrainH >  newPos.y) //避免沉入地下
         {
-            newPos = new Vector3(newPos.x, terrainH + Random.Range(3,10), newPos.z);
+            newPos = new Vector3(newPos.x, terrainH + UnityEngine.Random.Range(3,10), newPos.z);
         }
         return newPos;
     }
@@ -218,7 +232,7 @@ public class Replay : MonoBehaviour
     }
 
 
-    public void Play()
+    public  void Play()
     {
         isOnReplay = true;
         isPause = false;
@@ -254,7 +268,7 @@ public class Replay : MonoBehaviour
         mainCamera.SetActive(true);
         trail.SetActive(false);
         replayCamera.SetActive(false);
-        viewSwitchText.text = "1st";
+        viewSwitchText.text = "Onboard";
         hud.SetActive(true);
         isHudShow = true;
     }
@@ -268,6 +282,16 @@ public class Replay : MonoBehaviour
         viewSwitchText.text = "TV";
     }
 
+    void ResetBallon()
+    {
+        int i = 0;
+        foreach (Transform child in ballonParent.transform)
+        {
+            child.position = posList[i];
+            if (i < posList.Count) i++;
+        }
+    }
+
     public void Rewind() 
     {
         SwitchEmitting(false);
@@ -277,6 +301,7 @@ public class Replay : MonoBehaviour
         frameCounter = 0;
         trail.SetActive(true) ;
         isPause = false;
+        ResetBallon();
     }
 
     public void SwitchView()
